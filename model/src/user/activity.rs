@@ -49,6 +49,12 @@ pub struct Activity {
 
 impl Activity {
     pub fn new(name: String, activity_type: ActivityType) -> Activity {
+        let state = if activity_type == ActivityType::Custom {
+            Some(name.clone())
+        } else {
+            None
+        };
+
         Activity {
             name,
             activity_type,
@@ -57,7 +63,7 @@ impl Activity {
             timestamps: None,
             application_id: None,
             details: None,
-            state: None,
+            state,
             emoji: None,
             party: None,
             assets: None,
