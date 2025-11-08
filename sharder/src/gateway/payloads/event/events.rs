@@ -65,7 +65,6 @@ pub enum Event {
     VoiceStateUpdate(VoiceState),
     VoiceServerUpdate(super::VoiceServerUpdate),
     WebhookUpdate(super::WebhookUpdate),
-    #[serde(other)]
     Unknown(serde_json::Value),
 }
 
