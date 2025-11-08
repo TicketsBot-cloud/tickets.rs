@@ -1,6 +1,6 @@
 use core::fmt;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use model::channel::message::Message;
 use model::channel::{Channel, ThreadMember};
@@ -65,8 +65,16 @@ pub enum Event {
     VoiceStateUpdate(VoiceState),
     VoiceServerUpdate(super::VoiceServerUpdate),
     WebhookUpdate(super::WebhookUpdate),
-    #[serde(other)]
-    Unknown(serde_json::Value),
+    #[serde(other, deserialize_with = "deserialize_unknown")]
+    Unknown,
+}
+
+fn deserialize_unknown<'de, D>(_: D) -> Result<(), D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let _ = serde::de::IgnoredAny::deserialize(_)?;
+    Ok(())
 }
 
 impl fmt::Display for Event {
@@ -126,7 +134,7 @@ impl fmt::Display for Event {
             Event::VoiceStateUpdate(_) => write!(f, "VOICE_STATE_UPDATE"),
             Event::VoiceServerUpdate(_) => write!(f, "VOICE_SERVER_UPDATE"),
             Event::WebhookUpdate(_) => write!(f, "WEBHOOK_UPDATE"),
-            Event::Unknown(_) => write!(f, "UNKNOWN"),
+            Event::Unknown => write!(f, "UNKNOWN"),
         }
     }
 }
