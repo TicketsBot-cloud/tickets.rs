@@ -7,7 +7,7 @@ use super::ComponentType;
 pub struct SelectMenu {
     pub r#type: ComponentType,
     pub custom_id: Box<str>,
-    pub options: Vec<SelectOption>,
+    pub options: Option<Vec<SelectOption>>,
     pub channel_types: Option<Vec<ChannelType>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<Box<str>>,
