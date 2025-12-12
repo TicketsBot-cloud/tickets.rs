@@ -1,4 +1,4 @@
-FROM rust:1-buster AS builder
+FROM rust:1-bullseye AS builder
 
 RUN apt-get update && apt-get -y upgrade && apt-get -y install git openssl libssl-dev ca-certificates cmake
 
@@ -10,7 +10,7 @@ COPY . .
 RUN cargo build --release --bin bot_list_updater
 
 # Prod container
-FROM debian:buster
+FROM debian:bullseye
 
 RUN apt-get update && apt-get -y upgrade && apt-get -y install openssl libssl-dev ca-certificates
 
