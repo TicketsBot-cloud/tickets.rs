@@ -1,2 +1,3 @@
 - SERVER_ADDR
 - CACHE_URI
+- CORS_ORIGIN (optional, defaults to https://tickets.bot)
