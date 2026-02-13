@@ -1,6 +1,6 @@
 use super::{
-    ActionRow, Button, Container, File, InputText, Label, MediaGallery, Section, SelectMenu,
-    Separator, TextDisplay, Thumbnail,
+    ActionRow, Button, CheckboxGroup, Container, File, InputText, Label, MediaGallery,
+    RadioGroup, Section, SelectMenu, Separator, TextDisplay, Thumbnail,
 };
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -21,8 +21,11 @@ pub enum Component {
     File(Box<File>),                 // 13
     Separator(Box<Separator>),       // 14
     // 15 & 16 are not used
-    Container(Box<Container>), // 17
-    Label(Box<Label>),         // 18
+    Container(Box<Container>),       // 17
+    Label(Box<Label>),               // 18
+    // 19 & 20 are not used
+    RadioGroup(Box<RadioGroup>),       // 21
+    CheckboxGroup(Box<CheckboxGroup>), // 22
 }
 
 #[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone)]
@@ -45,6 +48,9 @@ pub enum ComponentType {
     // 15 & 16 are not used
     Container = 17,
     Label = 18,
+    // 19 & 20 are not used
+    RadioGroup = 21,
+    CheckboxGroup = 22,
 }
 
 impl TryFrom<u64> for ComponentType {
@@ -69,6 +75,9 @@ impl TryFrom<u64> for ComponentType {
             // 15 & 16 are not used
             17 => Self::Container,
             18 => Self::Label,
+            // 19 & 20 are not used
+            21 => Self::RadioGroup,
+            22 => Self::CheckboxGroup,
             _ => return Err(format!("invalid component type \"{}\"", value).into_boxed_str()),
         })
     }
@@ -106,6 +115,12 @@ impl<'de> Deserialize<'de> for Component {
                 serde_json::from_value(value).map(Component::SelectMenu)
             }
             ComponentType::InputText => serde_json::from_value(value).map(Component::InputText),
+            ComponentType::RadioGroup => {
+                serde_json::from_value(value).map(Component::RadioGroup)
+            }
+            ComponentType::CheckboxGroup => {
+                serde_json::from_value(value).map(Component::CheckboxGroup)
+            }
         }
         .map_err(D::Error::custom)?;
 
