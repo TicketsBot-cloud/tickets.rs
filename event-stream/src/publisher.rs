@@ -16,6 +16,7 @@ impl Publisher {
     pub fn new(brokers: Vec<String>, topic: String) -> Result<Self> {
         let producer: BaseProducer = ClientConfig::new()
             .set("bootstrap.servers", brokers.join(","))
+            .set("compression.type", "lz4")
             .create()?;
 
         Ok(Self { 

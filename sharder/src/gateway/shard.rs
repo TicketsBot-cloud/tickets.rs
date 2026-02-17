@@ -640,7 +640,7 @@ impl<T: EventForwarder> Shard<T> {
             _ => {}
         }
 
-        if is_whitelisted(&payload.data) {
+        if is_whitelisted(&payload.data) && self.meets_forward_threshold(&payload.data) {
             let guild_id: Option<Snowflake> = super::event_forwarding::get_guild_id(&payload.data);
 
             let raw_payload = match RawValue::from_string(data) {
