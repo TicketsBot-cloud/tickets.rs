@@ -36,7 +36,7 @@ impl EventForwarder for KafkaEventForwarder {
     }
 
     async fn flush(&self) -> Result<()> {
-        self.publisher.flush(Duration::from_secs(5));
+        self.publisher.flush(Duration::from_secs(5))?;
         Ok(())
     }
 }

@@ -48,7 +48,7 @@ impl Publisher {
         }
     }
 
-    pub fn flush(&self, timeout: Duration) {
-        self.producer.flush(timeout);
+    pub fn flush(&self, timeout: Duration) -> Result<()> {
+        self.producer.flush(timeout).map_err(Into::into)
     }
 }
