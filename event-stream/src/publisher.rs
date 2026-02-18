@@ -16,6 +16,7 @@ impl Publisher {
     pub fn new(brokers: Vec<String>, topic: String) -> Result<Self> {
         let producer: BaseProducer = ClientConfig::new()
             .set("bootstrap.servers", brokers.join(","))
+            .set("compression.type", "lz4")
             .create()?;
 
         Ok(Self { 
@@ -47,7 +48,7 @@ impl Publisher {
         }
     }
 
-    pub fn flush(&self, timeout: Duration) {
-        self.producer.flush(timeout);
+    pub fn flush(&self, timeout: Duration) -> Result<()> {
+        self.producer.flush(timeout).map_err(Into::into)
     }
 }

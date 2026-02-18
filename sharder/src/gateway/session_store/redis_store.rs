@@ -164,7 +164,7 @@ impl SessionStore for RedisSessionStore {
         }
 
         let mut conn = self.client.get().await?;
-        pipeline.query_async(&mut conn).await?;
+        pipeline.query_async::<_, ()>(&mut conn).await?;
 
         Ok(())
     }
@@ -187,14 +187,14 @@ impl SessionStore for RedisSessionStore {
         }
 
         let mut conn = self.client.get().await?;
-        pipeline.query_async(&mut conn).await?;
+        pipeline.query_async::<_, ()>(&mut conn).await?;
 
         Ok(())
     }
 
     async fn invalidate(&self, shard_id: u64) -> Result<()> {
         let mut conn = self.client.get().await?;
-        conn.del(self.build_keys(shard_id)).await?;
+        conn.del::<_, ()>(self.build_keys(shard_id)).await?;
 
         Ok(())
     }
@@ -206,7 +206,7 @@ impl SessionStore for RedisSessionStore {
             .collect();
 
         let mut conn = self.client.get().await?;
-        conn.del(keys.as_slice()).await?;
+        conn.del::<_, ()>(keys.as_slice()).await?;
 
         Ok(())
     }
