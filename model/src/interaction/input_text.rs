@@ -12,6 +12,8 @@ pub struct InputText {
     pub min_length: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_length: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize_repr, Serialize_repr)]
