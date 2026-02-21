@@ -19,6 +19,8 @@ pub struct SelectMenu {
     pub max_values: u8,
     #[serde(default = "Default::default")]
     pub disabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
