@@ -7,9 +7,9 @@ env:
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
     tags:
-      - '*'
+      - "*"
   workflow_dispatch:
 
 jobs:
@@ -21,22 +21,40 @@ jobs:
         include:
           - package: main-sharder
             dockerfile: sharder/main.Dockerfile
+            deployment: main-sharder
+            paths: sharder cache model common database event-stream
           - package: whitelabel-sharder
             dockerfile: sharder/whitelabel.Dockerfile
+            deployment: whitelabel-sharder
+            paths: sharder cache model common database event-stream
           - package: http-gateway
             dockerfile: http-gateway/Dockerfile
+            deployment: http-gateway
+            paths: http-gateway model common database cache
           - package: premiumproxy
             dockerfile: patreon-proxy/Dockerfile
+            deployment: premiumproxy
+            paths: patreon-proxy
           - package: cache-sync-service
             dockerfile: cache-sync-service/Dockerfile
+            deployment: cache-sync-service
+            paths: cache-sync-service event-stream common cache sharder model database
           - package: server-counter
             dockerfile: server-counter/Dockerfile
+            deployment: servercounter
+            paths: server-counter model cache
           - package: bot-list-updater
             dockerfile: bot-list-updater/Dockerfile
+            deployment: botlistupdater
+            paths: bot-list-updater
           - package: image-proxy
             dockerfile: image-proxy/Dockerfile
+            deployment: image-proxy
+            paths: image-proxy global-resolver
           - package: vote_listener
             dockerfile: vote_listener/Dockerfile
+            deployment: votelistener
+            paths: vote_listener model
     permissions:
       contents: read
       packages: write
@@ -44,15 +62,43 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" || "${{ github.ref_type }}" == "tag" ]]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          CHANGED_FILES=$(git diff --name-only HEAD~1)
+          HAS_CHANGES=false
+          for dir in ${{ matrix.paths }}; do
+            if echo "$CHANGED_FILES" | grep -q "^${dir}/"; then
+              HAS_CHANGES=true
+              break
+            fi
+          done
+
+          # Also rebuild if root Cargo files changed
+          if echo "$CHANGED_FILES" | grep -qE "^Cargo\.(toml|lock)$"; then
+            HAS_CHANGES=true
+          fi
+
+          echo "has_changes=${HAS_CHANGES}" >> $GITHUB_OUTPUT
 
       - name: Log in to the Container registry
+        if: steps.changes.outputs.has_changes == 'true'
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Determine image tag
+        if: steps.changes.outputs.has_changes == 'true'
         id: determine-tag
         run: |
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
@@ -63,21 +109,25 @@ jobs:
           echo "IMAGE_TAG=${TAG}" >> $GITHUB_ENV
 
       - name: Set image name
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           echo "IMAGE_NAME=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/${PACKAGE_NAME,,}" >> ${GITHUB_ENV}
         env:
           PACKAGE_NAME: ${{ matrix.package }}
 
       - name: Extract metadata (tags, labels) for Docker
+        if: steps.changes.outputs.has_changes == 'true'
         id: meta
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
           images: ${{ env.IMAGE_NAME }}
 
       - name: Set up Docker Buildx
+        if: steps.changes.outputs.has_changes == 'true'
         uses: docker/setup-buildx-action@v2
 
       - name: Build and push Docker image
+        if: steps.changes.outputs.has_changes == 'true'
         uses: docker/build-push-action@v4
 
         with:
@@ -90,5 +140,23 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Log image name
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           echo "Image URI: ${IMAGE_NAME}"
+
+      - name: Trigger deployment update
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.DEPLOYMENT_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'ticketsbot-cloud',
+              repo: 'infra',
+              workflow_id: 'update-deployment.yml',
+              ref: 'main',
+              inputs: {
+                deployment_name: '${{ matrix.deployment }}',
+                image_sha: '${{ github.sha }}'
+              }
+            })
