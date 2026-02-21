@@ -1,4 +1,4 @@
-FROM rust:1-buster
+FROM rust:1-bullseye
 
 RUN apt-get install -y apt-transport-https
 RUN apt-get update && apt-get -y upgrade && apt-get -y install python3 openssl libssl-dev ca-certificates cmake
@@ -10,7 +10,7 @@ COPY . .
 
 RUN cargo build --release --bin server_counter
 
-FROM debian:buster
+FROM debian:bullseye
 
 RUN apt-get update && apt-get -y upgrade && apt-get -y install openssl libssl-dev ca-certificates
 
