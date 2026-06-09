@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
 use cache::Cache;
+use deadpool::managed::PoolConfig;
+use deadpool::Runtime;
+use deadpool_redis::{Config as RedisConfig, Pool};
 use event_stream::Consumer;
 use tracing::debug;
 
@@ -20,20 +23,28 @@ impl<C: Cache> Manager<C> {
         Self { config, cache }
     }
 
-    pub fn start(&self) -> Result<()> {
-        let topic = self.config.topic.clone();
+    pub async fn start(&self) -> Result<()> {
+        let stream = self.config.redis_stream.clone();
+        let group = self.config.consumer_group.clone();
 
-        debug!(%topic, "Connecting consumer");
-        let consumer = Arc::new(Consumer::new(
-            self.config.brokers.clone(),
-            topic.clone(),
-            self.config.group_id.clone(),
-        )?);
-
-        debug!("Consumer connected!");
+        debug!(%stream, %group, "Building Redis pool for consumer");
+        let pool = build_pool(&self.config);
 
         for i in 0..self.config.workers {
-            let worker = Worker::new(i, Arc::clone(&consumer), Arc::clone(&self.cache));
+            let consumer_name = format!("worker-{}", i);
+
+            debug!(%stream, %group, %consumer_name, "Creating consumer");
+            let consumer = Arc::new(
+                Consumer::new(
+                    pool.clone(),
+                    stream.clone(),
+                    group.clone(),
+                    consumer_name,
+                )
+                .await?,
+            );
+
+            let worker = Worker::new(i, consumer, Arc::clone(&self.cache));
 
             tokio::spawn(async move {
                 worker.run().await;
@@ -42,4 +53,12 @@ impl<C: Cache> Manager<C> {
 
         Ok(())
     }
+}
+
+fn build_pool(config: &Config) -> Pool {
+    let mut cfg = RedisConfig::from_url(config.get_redis_uri());
+    cfg.pool = Some(PoolConfig::new(config.workers));
+
+    cfg.create_pool(Some(Runtime::Tokio1))
+        .expect("Failed to create Redis pool for consumer")
 }

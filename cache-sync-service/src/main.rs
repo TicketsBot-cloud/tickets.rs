@@ -6,6 +6,7 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv::dotenv().ok(); // Load .env file if it exists
     tracing_subscriber::fmt::init();
 
     let config = Config::from_env()?;
@@ -19,7 +20,7 @@ async fn main() -> Result<()> {
 
     info!(workers = %config.workers, "Starting workers...");
     let manager = Manager::new(config, cache);
-    manager.start()?;
+    manager.start().await?;
 
     ctrl_c().await.expect("Failed to listen for ctrl-c");
 

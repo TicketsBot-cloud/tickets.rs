@@ -9,7 +9,7 @@ use sharder::{
 use sharder::{build_redis, metrics_server, Result};
 
 use deadpool_redis::redis::cmd;
-use sharder::event_forwarding::KafkaEventForwarder;
+use sharder::event_forwarding::RedisStreamEventForwarder;
 use tracing::info;
 
 #[cfg(feature = "use-jemalloc")]
@@ -27,7 +27,8 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 // Sentry doesn't support #[tokio::main]
 fn main() -> Result<()> {
-    // init sharder options
+    dotenv::dotenv().ok(); // Load .env file if it exists
+                           // init sharder options
     let config = Config::from_envvar();
 
     #[cfg(feature = "use-sentry")]
@@ -93,9 +94,7 @@ async fn run(config: Config) -> Result<()> {
     let session_store =
         RedisSessionStore::new(Arc::clone(&redis), "tickets:resume:public".to_string(), 300);
 
-    info!(service = "kafka", "Connecting to Kafka");
-    let event_forwarder =
-        Arc::new(KafkaEventForwarder::new(&config).expect("Failed to connect to Kafka"));
+    let event_forwarder = Arc::new(RedisStreamEventForwarder::new((*redis).clone()));
 
     let sm = PublicShardManager::new(config, options, session_store, redis, event_forwarder).await;
 
