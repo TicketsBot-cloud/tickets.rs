@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use common::event_forwarding;
 pub use http::HttpEventForwarder;
 
-mod kafka;
-pub use kafka::KafkaEventForwarder;
+mod redis_stream;
+pub use redis_stream::RedisStreamEventForwarder;
 
 mod util;
 use model::Snowflake;

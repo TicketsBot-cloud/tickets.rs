@@ -39,6 +39,7 @@ prometheus = { version = "0.13", optional = true }
 lazy_static = { version = "1.4", optional = true }
 hyper = { version = "0.14", features = ["server", "http1", "http2"], optional = true }
 event-stream = { path = "../event-stream" }
+dotenv = "0.15"
 
 [features]
 default = ["use-mimalloc", "skip-initial-guild-creates", "use-sentry", "metrics", "resume-after-identify"]

@@ -6,6 +6,8 @@ use sqlx::postgres::PgPoolOptions;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    dotenv::dotenv().ok(); // Load .env file if it exists
+
     let config = Config::from_envvar();
 
     let db_opts = PgPoolOptions::new()

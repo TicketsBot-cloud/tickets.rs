@@ -1,54 +1,34 @@
-use std::{sync::atomic::{AtomicUsize, Ordering}, time::Duration};
-
 use common::event_forwarding;
-use rdkafka::{error::KafkaError, producer::{BaseProducer, BaseRecord, Producer}, types::RDKafkaErrorCode, ClientConfig};
+use deadpool_redis::{redis::cmd, Pool};
 use crate::Result;
 
+const STREAM_KEY: &str = "stream:gateway-events";
+const MAX_LEN: usize = 50_000;
+
 pub struct Publisher {
-    topic: String,
-    producer: BaseProducer,
-    since_last_poll: AtomicUsize,
+    pool: Pool,
 }
 
-const POLL_INTERVAL: usize = 100;
-
 impl Publisher {
-    pub fn new(brokers: Vec<String>, topic: String) -> Result<Self> {
-        let producer: BaseProducer = ClientConfig::new()
-            .set("bootstrap.servers", brokers.join(","))
-            .set("compression.type", "lz4")
-            .create()?;
-
-        Ok(Self { 
-            topic, 
-            producer,
-            since_last_poll: AtomicUsize::new(0),
-        })
+    pub fn new(pool: Pool) -> Self {
+        Self { pool }
     }
 
-    pub fn send(&self, ev: &event_forwarding::Event, guild_id: u64) -> Result<()> {
-        let marshalled = serde_json::to_vec(ev)?;
+    pub async fn send(&self, ev: &event_forwarding::Event) -> Result<()> {
+        let payload = serde_json::to_string(ev)?;
+        let mut conn = self.pool.get().await?;
 
-        let key = guild_id.to_string();
-        let record = BaseRecord::to(&self.topic.as_str())
-            .payload(&marshalled)
-            .key(key.as_str());
+        cmd("XADD")
+            .arg(STREAM_KEY)
+            .arg("MAXLEN")
+            .arg("~")
+            .arg(MAX_LEN)
+            .arg("*")
+            .arg("data")
+            .arg(&payload)
+            .query_async::<_, String>(&mut conn)
+            .await?;
 
-        // Err is infallible
-        _ = self.since_last_poll.compare_exchange(POLL_INTERVAL, 0, Ordering::Relaxed, Ordering::Relaxed);
-        self.since_last_poll.fetch_add(1, Ordering::Relaxed);
-
-        match self.producer.send(record) {
-            Ok(_) => Ok(()),
-            Err((e@KafkaError::MessageProduction(RDKafkaErrorCode::QueueFull), _)) => {
-                self.producer.poll(Duration::from_millis(10));
-                return Err(e.into());
-            },
-            Err((e, _)) => Err(e.into()),
-        }
-    }
-
-    pub fn flush(&self, timeout: Duration) -> Result<()> {
-        self.producer.flush(timeout).map_err(Into::into)
+        Ok(())
     }
 }

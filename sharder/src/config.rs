@@ -13,8 +13,6 @@ pub struct Config {
     pub redis_threads: usize,
     pub sentry_dsn: String,
     pub worker_svc_uri: Option<String>,
-    pub kafka_brokers: Vec<String>,
-    pub kafka_topic: String,
 
     #[cfg(feature = "metrics")]
     pub metrics_addr: String,

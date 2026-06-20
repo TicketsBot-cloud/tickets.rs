@@ -9,7 +9,7 @@ use sharder::setup_sentry;
 
 use database::{sqlx::postgres::PgPoolOptions, Database};
 
-use sharder::event_forwarding::KafkaEventForwarder;
+use sharder::event_forwarding::RedisStreamEventForwarder;
 use tracing::info;
 
 #[cfg(feature = "use-jemalloc")]
@@ -56,9 +56,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         300,
     );
 
-    info!(service = "kafka", "Connecting to Kafka");
-    let event_forwarder =
-        Arc::new(KafkaEventForwarder::new(&config).expect("Failed to connect to Kafka"));
+    let event_forwarder = Arc::new(RedisStreamEventForwarder::new(
+        (*redis).clone(),
+    ));
 
     let sm = Arc::new(WhitelabelShardManager::new(
         config,
