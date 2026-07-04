@@ -62,7 +62,7 @@ async fn run(config: Config) -> Result<()> {
         token: Box::from(config.sharder_token.clone()),
         shard_count,
         presence: StatusUpdate::new(
-            ActivityType::Listening,
+            ActivityType::Custom,
             "/help".to_owned(),
             StatusType::Online,
         ),

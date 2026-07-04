@@ -23,4 +23,15 @@ impl StatusUpdate {
             afk: false,
         }
     }
+
+    /// A presence with no activity displayed (e.g. a whitelabel bot whose owner cleared
+    /// their custom status). Serializes `game` as null, which clears the activity on Discord.
+    pub fn without_activity(status_type: StatusType) -> StatusUpdate {
+        StatusUpdate {
+            since: Some(0),
+            game: None,
+            status: status_type,
+            afk: false,
+        }
+    }
 }

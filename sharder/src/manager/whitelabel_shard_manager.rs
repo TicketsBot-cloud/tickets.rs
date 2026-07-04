@@ -61,23 +61,24 @@ impl<T: EventForwarder> WhitelabelShardManager<T> {
 
         let sm = Arc::clone(&self);
         tokio::spawn(async move {
-            // retrieve bot status
-            let (status, status_type) = match self.database.whitelabel_status.get(bot_id).await {
-                Ok((status, Some(status_type))) => Some((status, status_type)),
-                Ok((_, None)) => {
-                    eprintln!("Bot {} has invalid status type", bot_id);
-                    None
-                }
-                Err(database::sqlx::Error::RowNotFound) => None,
-                Err(e) => {
-                    eprintln!(
-                        "Error occurred while retrieving status for {}: {:?}",
-                        bot.bot_id, e
-                    );
-                    None
-                }
-            }
-            .unwrap_or_else(|| ("to /help".to_owned(), ActivityType::Listening));
+            // retrieve bot status; None means the owner set no custom status, so the bot
+            // connects with no activity displayed.
+            let status: Option<(String, ActivityType)> =
+                match self.database.whitelabel_status.get(bot_id).await {
+                    Ok((status, Some(status_type))) => Some((status, status_type)),
+                    Ok((_, None)) => {
+                        eprintln!("Bot {} has invalid status type", bot_id);
+                        None
+                    }
+                    Err(database::sqlx::Error::RowNotFound) => None,
+                    Err(e) => {
+                        eprintln!(
+                            "Error occurred while retrieving status for {}: {:?}",
+                            bot.bot_id, e
+                        );
+                        None
+                    }
+                };
 
             let mut resume_data = sm
                 .session_store
@@ -87,7 +88,12 @@ impl<T: EventForwarder> WhitelabelShardManager<T> {
 
             loop {
                 let shard_info = ShardInfo::new(0, 1);
-                let presence = StatusUpdate::new(status_type, status.clone(), StatusType::Online);
+                let presence = match &status {
+                    Some((text, activity_type)) => {
+                        StatusUpdate::new(*activity_type, text.clone(), StatusType::Online)
+                    }
+                    None => StatusUpdate::without_activity(StatusType::Online),
+                };
                 let identify = Identify::new(
                     bot.token.clone(),
                     None,
@@ -203,28 +209,35 @@ impl<T: EventForwarder> WhitelabelShardManager<T> {
                         if let Some(tx) = self.shard_command_channels.read().await.get(&bot_id) {
                             println!("[RPC] Received status update payload for bot {bot_id}");
 
-                            // retrieve new status
-                            // TODO: New tokio::spawn for this?
-                            match database.whitelabel_status.get(bot_id).await {
+                            // retrieve new status; if the row is gone (status cleared),
+                            // send a presence with no activity so the clear propagates to
+                            // Discord instead of being a no-op
+                            let new_status = match database.whitelabel_status.get(bot_id).await {
                                 Ok((status, Some(status_type))) => {
-                                    let status =
-                                        StatusUpdate::new(status_type, status, StatusType::Online);
-
-                                    let cmd = InternalCommand::StatusUpdate { status };
-
-                                    if let Err(e) = tx.send(cmd).await {
-                                        eprintln!(
-                                            "An error occured while updating status for {}: {}",
-                                            bot_id, e
-                                        );
-                                    }
+                                    Some(StatusUpdate::new(status_type, status, StatusType::Online))
                                 }
-
+                                Err(database::sqlx::Error::RowNotFound) => {
+                                    Some(StatusUpdate::without_activity(StatusType::Online))
+                                }
                                 Ok((_, None)) => {
                                     eprintln!("Bot {} has invalid status type", bot_id);
+                                    None
                                 }
+                                Err(e) => {
+                                    eprintln!("Error retrieving status from db: {}", e);
+                                    None
+                                }
+                            };
 
-                                Err(e) => eprintln!("Error retrieving status from db: {}", e),
+                            if let Some(status) = new_status {
+                                let cmd = InternalCommand::StatusUpdate { status };
+
+                                if let Err(e) = tx.send(cmd).await {
+                                    eprintln!(
+                                        "An error occured while updating status for {}: {}",
+                                        bot_id, e
+                                    );
+                                }
                             }
                         }
                     }
