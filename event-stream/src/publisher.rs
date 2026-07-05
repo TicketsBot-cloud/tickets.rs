@@ -3,15 +3,15 @@ use deadpool_redis::{redis::cmd, Pool};
 use crate::Result;
 
 const STREAM_KEY: &str = "stream:gateway-events";
-const MAX_LEN: usize = 50_000;
 
 pub struct Publisher {
     pool: Pool,
+    max_len: usize,
 }
 
 impl Publisher {
-    pub fn new(pool: Pool) -> Self {
-        Self { pool }
+    pub fn new(pool: Pool, max_len: usize) -> Self {
+        Self { pool, max_len }
     }
 
     pub async fn send(&self, ev: &event_forwarding::Event) -> Result<()> {
@@ -22,7 +22,7 @@ impl Publisher {
             .arg(STREAM_KEY)
             .arg("MAXLEN")
             .arg("~")
-            .arg(MAX_LEN)
+            .arg(self.max_len)
             .arg("*")
             .arg("data")
             .arg(&payload)

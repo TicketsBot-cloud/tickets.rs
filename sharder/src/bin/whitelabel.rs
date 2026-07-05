@@ -58,6 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let event_forwarder = Arc::new(RedisStreamEventForwarder::new(
         (*redis).clone(),
+        config.gateway_stream_max_len,
     ));
 
     let sm = Arc::new(WhitelabelShardManager::new(

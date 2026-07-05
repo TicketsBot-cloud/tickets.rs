@@ -14,6 +14,11 @@ pub struct Config {
     pub sentry_dsn: String,
     pub worker_svc_uri: Option<String>,
 
+    // Approximate MAXLEN cap for the gateway-events Redis stream. Configurable so
+    // it can absorb a restart burst and be retuned later without a rebuild.
+    #[serde(default = "default_gateway_stream_max_len")]
+    pub gateway_stream_max_len: usize,
+
     #[cfg(feature = "metrics")]
     pub metrics_addr: String,
 
@@ -52,6 +57,10 @@ impl Config {
             None => format!("redis://{}/", self.redis_addr),
         }
     }
+}
+
+fn default_gateway_stream_max_len() -> usize {
+    50_000
 }
 
 #[cfg(feature = "whitelabel")]
