@@ -135,7 +135,7 @@ pub struct ModalSubmitInteraction {
     pub id: Snowflake,
     pub application_id: Snowflake,
     pub r#type: InteractionType,
-    pub message: Message,
+    pub message: Option<Message>,
     pub data: ModalInteractionData,
     pub guild_id: Option<Snowflake>,
     pub channel_id: Snowflake,
