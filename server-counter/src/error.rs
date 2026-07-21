@@ -12,4 +12,10 @@ pub enum Error {
 
     #[error("error occurred in hyper: {0}")]
     HyperError(#[from] hyper::Error),
+
+    #[error("error occurred during Redis operation: {0}")]
+    RedisError(#[from] deadpool_redis::redis::RedisError),
+
+    #[error("error occurred getting Redis connection from pool: {0}")]
+    RedisPoolError(#[from] deadpool_redis::PoolError),
 }

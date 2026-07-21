@@ -4,6 +4,7 @@ use std::str;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(feature = "whitelabel")]
 use database::Database;
@@ -260,6 +261,8 @@ impl<T: EventForwarder> Shard<T> {
             .take()
             .ok_or_else(|| GatewayError::custom("heartbeat_rx is None"))?;
         let mut has_done_heartbeat = false;
+        let mut status_interval = tokio::time::interval(Duration::from_secs(15));
+        status_interval.tick().await; // consume the immediate first tick
 
         debug!("Starting read loop");
         loop {
@@ -387,6 +390,10 @@ impl<T: EventForwarder> Shard<T> {
 
                         _ => {}
                     }
+                }
+
+                _ = status_interval.tick() => {
+                    self.write_shard_status().await;
                 }
 
                 // handle internal commands
@@ -625,6 +632,7 @@ impl<T: EventForwarder> Shard<T> {
                     }
                 }
 
+                self.write_shard_status().await;
                 return Ok(());
             }
 
@@ -688,6 +696,8 @@ impl<T: EventForwarder> Shard<T> {
                     }
                     info!("Reported readiness");
                 }
+
+                self.write_shard_status().await;
 
                 #[cfg(feature = "resume-after-identify")]
                 if !self.used_resume {
@@ -834,6 +844,69 @@ impl<T: EventForwarder> Shard<T> {
     pub fn get_shard_id(&self) -> u16 {
         self.identify.data.shard_info.shard_id
     }
+
+    #[cfg(not(feature = "whitelabel"))]
+    async fn write_shard_status(&self) {
+        let shard_id = self.get_shard_id();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let latency_ms = self
+            .last_ack
+            .checked_duration_since(self.last_heartbeat)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        let guild_count = if self.received_count > 0 {
+            self.received_count
+        } else {
+            self.ready_guild_count as usize
+        };
+
+        let status = ShardStatusBlob {
+            shard_id,
+            cluster_id: self.config.sharder_id,
+            cluster_size: self.config.sharder_cluster_size,
+            num_shards: self.identify.data.shard_info.num_shards,
+            guild_count,
+            latency_ms,
+            connected: self.is_ready,
+            uptime_seconds: self.connect_time.elapsed().as_secs(),
+            last_seen: now,
+        };
+
+        let key = format!("tickets:shard_status:public:{}", shard_id);
+        let payload = match serde_json::to_string(&status) {
+            Ok(v) => v,
+            Err(e) => {
+                warn!(shard_id = %shard_id, error = %e, "Failed to serialise shard status");
+                return;
+            }
+        };
+
+        if let Err(e) = self.redis_write(&key, payload, Some(90)).await {
+            warn!(shard_id = %shard_id, error = %e, "Failed to write shard status to Redis");
+        }
+    }
+
+    #[cfg(feature = "whitelabel")]
+    async fn write_shard_status(&self) {}
+}
+
+#[derive(Serialize)]
+#[cfg(not(feature = "whitelabel"))]
+struct ShardStatusBlob {
+    shard_id: u16,
+    cluster_id: u16,
+    cluster_size: u16,
+    num_shards: u16,
+    guild_count: usize,
+    latency_ms: u64,
+    connected: bool,
+    uptime_seconds: u64,
+    last_seen: u64,
 }
 
 async fn handle_writes(

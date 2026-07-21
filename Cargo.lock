@@ -3385,7 +3385,9 @@ version = "0.1.0"
 dependencies = [
  "axum 0.6.20",
  "cache",
+ "deadpool",
  "deadpool-postgres",
+ "deadpool-redis",
  "env_logger 0.10.2",
  "envy",
  "hyper 0.14.29",
