@@ -8,6 +8,10 @@ WORKDIR /tmp/compile
 
 COPY . .
 
+# global-resolver (a dependency of secure-proxy) requires nightly-only language
+# features (#![feature(ip)], #![feature(impl_trait_in_assoc_type)]), matching
+# the nightly toolchain already used for it in .github/workflows/check.yaml.
+RUN rustup install nightly && rustup default nightly
 RUN cargo build --release --bin secure-proxy
 
 # Prod container
