@@ -55,6 +55,10 @@ jobs:
             dockerfile: vote_listener/Dockerfile
             deployment: votelistener
             paths: vote_listener model
+          - package: secure-proxy
+            dockerfile: secure-proxy/Dockerfile
+            deployment: secure-proxy
+            paths: secure-proxy global-resolver
     permissions:
       contents: read
       packages: write
