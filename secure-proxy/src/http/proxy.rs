@@ -127,7 +127,7 @@ pub(crate) async fn proxy(
 
     let future = server.http_client.request(req);
 
-    let res = match timeout(Duration::from_secs(3), future).await {
+    let res = match timeout(Duration::from_secs(server.config.timeout_seconds), future).await {
         Ok(res) => res,
         Err(_) => return Err((StatusCode::REQUEST_TIMEOUT, "Request timed out").into()),
     };
