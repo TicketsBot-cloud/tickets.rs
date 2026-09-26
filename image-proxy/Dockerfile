@@ -1,4 +1,4 @@
-FROM rust:1-bullseye
+FROM rust:1-bookworm
 
 RUN apt-get install -y apt-transport-https
 RUN apt-get update && apt-get -y upgrade && apt-get -y install python3 openssl libssl-dev ca-certificates cmake
@@ -8,10 +8,12 @@ WORKDIR /tmp/compile
 
 COPY . .
 
+# global-resolver needs nightly-only features
+RUN rustup install nightly && rustup default nightly
 RUN cargo build --release --bin image-proxy
 
 # Prod container
-FROM debian:bullseye
+FROM debian:bookworm
 
 RUN apt-get update && apt-get -y upgrade && apt-get -y install openssl libssl-dev ca-certificates
 
