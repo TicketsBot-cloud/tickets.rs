@@ -169,7 +169,18 @@ impl Cache for PostgresCache {
             return Ok(());
         }
 
-        self.send_payload(CachePayload::StoreGuilds { guilds })
+        self.send_payload(CachePayload::StoreGuilds {
+            guilds,
+            bot_id: None,
+        })
+    }
+
+    #[tracing::instrument(name = "store_guild_from_bot", skip(self, guild), fields(guild_id = %guild.id))]
+    async fn store_guild_from_bot(&self, guild: Guild, bot_id: Snowflake) -> Result<()> {
+        self.send_payload(CachePayload::StoreGuilds {
+            guilds: vec![guild],
+            bot_id: Some(bot_id),
+        })
     }
 
     #[tracing::instrument(name = "get_guild", skip(self))]
@@ -202,7 +213,22 @@ impl Cache for PostgresCache {
             return Ok(());
         }
 
-        self.send_payload(CachePayload::StoreChannels { channels })
+        self.send_payload(CachePayload::StoreChannels {
+            channels,
+            bot_id: None,
+        })
+    }
+
+    #[tracing::instrument(name = "store_channel_from_bot", skip(self, channel), fields(channel_id = %channel.id))]
+    async fn store_channel_from_bot(&self, channel: Channel, bot_id: Snowflake) -> Result<()> {
+        if !self.opts.channels {
+            return Ok(());
+        }
+
+        self.send_payload(CachePayload::StoreChannels {
+            channels: vec![channel],
+            bot_id: Some(bot_id),
+        })
     }
 
     #[tracing::instrument(name = "get_channel", skip(self))]

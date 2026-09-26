@@ -15,6 +15,7 @@ pub enum CachePayload {
 
     StoreGuilds {
         guilds: Vec<Guild>,
+        bot_id: Option<Snowflake>,
     },
     GetGuild {
         id: Snowflake,
@@ -29,6 +30,7 @@ pub enum CachePayload {
 
     StoreChannels {
         channels: Vec<Channel>,
+        bot_id: Option<Snowflake>,
     },
     GetChannel {
         id: Snowflake,

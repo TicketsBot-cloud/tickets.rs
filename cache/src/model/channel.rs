@@ -29,6 +29,7 @@ pub struct CachedChannel {
     pub member_count: Option<usize>,
     pub thread_metadata: Option<ThreadMetadata>,
     pub thread_member: Option<ThreadMember>,
+    pub flags: Option<u64>,
 }
 
 impl From<CachedChannel> for Channel {
@@ -62,6 +63,7 @@ impl From<Channel> for CachedChannel {
             member_count: other.member_count,
             thread_metadata: other.thread_metadata,
             thread_member: other.thread_member,
+            flags: other.flags,
         }
     }
 }
