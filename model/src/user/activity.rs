@@ -49,10 +49,12 @@ pub struct Activity {
 
 impl Activity {
     pub fn new(name: String, activity_type: ActivityType) -> Activity {
-        let state = if activity_type == ActivityType::Custom {
-            Some(name.clone())
+        // For a custom status Discord displays the `state` field, not `name`, and expects
+        // `name` to literally be "Custom Status". So route the text into `state` and fix the name.
+        let (name, state) = if activity_type == ActivityType::Custom {
+            ("Custom Status".to_owned(), Some(name))
         } else {
-            None
+            (name, None)
         };
 
         Activity {
