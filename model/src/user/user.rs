@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::PremiumType;
-use crate::{ImageHash, Snowflake};
+use crate::Snowflake;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct User {
@@ -9,7 +9,7 @@ pub struct User {
     pub id: Snowflake,
     pub username: String,
     pub global_name: Option<String>,
-    pub avatar: Option<ImageHash>,
+    pub avatar: Option<String>,
     #[serde(default)]
     pub bot: bool,
     #[serde(default)]

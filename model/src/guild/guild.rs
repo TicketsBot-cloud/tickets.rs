@@ -6,7 +6,7 @@ use crate::channel::Channel;
 use crate::stage::StageInstance;
 use crate::sticker::Sticker;
 use crate::user::PresenceUpdate;
-use crate::{ImageHash, PermissionBitSet, Snowflake};
+use crate::{PermissionBitSet, Snowflake};
 use chrono::{DateTime, Utc};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -14,11 +14,11 @@ pub struct Guild {
     #[serde(skip_serializing)]
     pub id: Snowflake,
     pub name: String,
-    pub icon: Option<ImageHash>,
+    pub icon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub splash: Option<ImageHash>,
+    pub splash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub discovery_splash: Option<ImageHash>,
+    pub discovery_splash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub owner: Option<bool>,
     #[serde(serialize_with = "Snowflake::serialize_to_int")]
@@ -77,7 +77,7 @@ pub struct Guild {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub banner: Option<ImageHash>,
+    pub banner: Option<String>,
     pub premium_tier: PremiumTier,
     pub premium_subscription_count: Option<u16>,
     pub preferred_locale: String,
