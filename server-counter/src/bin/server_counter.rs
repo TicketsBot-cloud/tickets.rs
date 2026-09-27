@@ -1,4 +1,7 @@
 use cache::PostgresCache;
+use deadpool::managed::PoolConfig;
+use deadpool::Runtime;
+use deadpool_redis::Config as RedisConfig;
 use log::info;
 use server_counter::{http::Server, Config, Error};
 
@@ -12,7 +15,13 @@ async fn main() -> Result<(), Error> {
         .await
         .map_err(Error::CacheError)?;
 
-    let server = Server::new(config, cache);
+    let mut redis_cfg = RedisConfig::from_url(config.get_redis_uri());
+    redis_cfg.pool = Some(PoolConfig::new(2));
+    let redis = redis_cfg
+        .create_pool(Some(Runtime::Tokio1))
+        .expect("Failed to create Redis pool");
+
+    let server = Server::new(config, cache, redis);
     info!("Starting server...");
     server.start().await
 }

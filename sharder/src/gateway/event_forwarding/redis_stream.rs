@@ -13,8 +13,8 @@ pub struct RedisStreamEventForwarder {
 }
 
 impl RedisStreamEventForwarder {
-    pub fn new(pool: Pool) -> Self {
-        let publisher = Publisher::new(pool);
+    pub fn new(pool: Pool, max_len: usize) -> Self {
+        let publisher = Publisher::new(pool, max_len);
         Self { publisher }
     }
 }

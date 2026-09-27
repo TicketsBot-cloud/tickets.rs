@@ -94,7 +94,10 @@ async fn run(config: Config) -> Result<()> {
     let session_store =
         RedisSessionStore::new(Arc::clone(&redis), "tickets:resume:public".to_string(), 300);
 
-    let event_forwarder = Arc::new(RedisStreamEventForwarder::new((*redis).clone()));
+    let event_forwarder = Arc::new(RedisStreamEventForwarder::new(
+        (*redis).clone(),
+        config.gateway_stream_max_len,
+    ));
 
     let sm = PublicShardManager::new(config, options, session_store, redis, event_forwarder).await;
 
