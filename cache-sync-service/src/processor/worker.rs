@@ -66,7 +66,7 @@ impl<C: Cache> Worker<C> {
 
             CONCURRENT_EVENTS_GUAGE.inc();
 
-            if let Err(e) = self.handle_event(ev.event).await {
+            if let Err(e) = self.handle_event(ev.event, Snowflake(ev.bot_id)).await {
                 error!(error = %e, "Failed to handle event.");
                 CONCURRENT_EVENTS_GUAGE.dec();
                 continue;
@@ -76,7 +76,7 @@ impl<C: Cache> Worker<C> {
         }
     }
 
-    async fn handle_event(&self, raw: Box<RawValue>) -> Result<()> {
+    async fn handle_event(&self, raw: Box<RawValue>, bot_id: Snowflake) -> Result<()> {
         let payload: Dispatch = serde_json::from_str(raw.get())?;
 
         trace!(?payload, "Received event");
@@ -90,10 +90,10 @@ impl<C: Cache> Worker<C> {
 
         let mut cachable = true;
         match payload.data {
-            Event::ChannelCreate(c) => self.cache.store_channel(c).await?,
-            Event::ChannelUpdate(c) => self.cache.store_channel(c).await?,
+            Event::ChannelCreate(c) => self.cache.store_channel_from_bot(c, bot_id).await?,
+            Event::ChannelUpdate(c) => self.cache.store_channel_from_bot(c, bot_id).await?,
             Event::ChannelDelete(c) => self.cache.delete_channel(c.id).await?,
-            Event::ThreadCreate(t) => self.cache.store_channel(t).await?,
+            Event::ThreadCreate(t) => self.cache.store_channel_from_bot(t, bot_id).await?,
             Event::ThreadUpdate(t) => {
                 if t.thread_metadata
                     .as_ref()
@@ -102,17 +102,17 @@ impl<C: Cache> Worker<C> {
                 {
                     self.cache.delete_channel(t.id).await?
                 } else {
-                    self.cache.store_channel(t).await?
+                    self.cache.store_channel_from_bot(t, bot_id).await?
                 }
             }
             Event::ThreadDelete(t) => self.cache.delete_channel(t.id).await?,
             Event::GuildCreate(mut g) => {
                 apply_guild_id_to_channels(&mut g);
-                self.cache.store_guild(g).await?;
+                self.cache.store_guild_from_bot(g, bot_id).await?;
             }
             Event::GuildUpdate(mut g) => {
                 apply_guild_id_to_channels(&mut g);
-                self.cache.store_guild(g).await?;
+                self.cache.store_guild_from_bot(g, bot_id).await?;
             }
             Event::GuildDelete(g) => self.cache.delete_guild(g.id).await?,
             // When removing members, also remove the user, as it's too expensive to check if the user is in another guild.

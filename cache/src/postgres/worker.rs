@@ -4,6 +4,7 @@ use model::channel::Channel;
 use model::guild::{Emoji, Guild, Member, Role, VoiceState};
 use model::user::User;
 use model::Snowflake;
+use serde::Serialize;
 use std::cmp::Ordering::Equal;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
@@ -81,7 +82,7 @@ impl Worker {
 
                 Ok(self.client.batch_execute(&batch[..]).await?)
             }
-            CachePayload::StoreGuilds { guilds } => self.store_guilds(guilds).await,
+            CachePayload::StoreGuilds { guilds, bot_id } => self.store_guilds(guilds, bot_id).await,
             CachePayload::GetGuild { id, tx } => {
                 let _ = tx.send(self.get_guild(id).await);
                 Ok(())
@@ -91,7 +92,9 @@ impl Worker {
                 let _ = tx.send(self.get_guild_count().await);
                 Ok(())
             }
-            CachePayload::StoreChannels { channels } => self.store_channels(channels).await,
+            CachePayload::StoreChannels { channels, bot_id } => {
+                self.store_channels(channels, bot_id).await
+            }
             CachePayload::GetChannel { id, tx } => {
                 let _ = tx.send(self.get_channel(id).await);
                 Ok(())
@@ -151,7 +154,7 @@ impl Worker {
 
 impl Worker {
     #[tracing::instrument(skip(self, guilds))]
-    async fn store_guilds(&self, mut guilds: Vec<Guild>) -> Result<()> {
+    async fn store_guilds(&self, mut guilds: Vec<Guild>, bot_id: Option<Snowflake>) -> Result<()> {
         if guilds.is_empty() {
             return Ok(());
         }
@@ -190,7 +193,7 @@ impl Worker {
         for guild in guilds {
             if self.options.channels {
                 if let Some(channels) = guild.channels {
-                    if let Err(e) = self.store_channels(channels).await {
+                    if let Err(e) = self.store_channels(channels, bot_id).await {
                         res = Err(e);
                     }
                 }
@@ -198,7 +201,7 @@ impl Worker {
 
             if self.options.threads {
                 if let Some(threads) = guild.threads {
-                    if let Err(e) = self.store_channels(threads).await {
+                    if let Err(e) = self.store_channels(threads, bot_id).await {
                         res = Err(e);
                     }
                 }
@@ -265,7 +268,11 @@ impl Worker {
     }
 
     #[tracing::instrument(skip(self, channels), fields(channel_count = channels.len()))]
-    async fn store_channels(&self, channels: Vec<Channel>) -> Result<()> {
+    async fn store_channels(
+        &self,
+        channels: Vec<Channel>,
+        bot_id: Option<Snowflake>,
+    ) -> Result<()> {
         let mut channels = channels
             .into_iter()
             .filter(|c| c.guild_id.is_some())
@@ -279,28 +286,7 @@ impl Worker {
         channels.sort_by(|c1, c2| c1.id.cmp(&c2.id));
         channels.dedup();
 
-        let mut query =
-            String::from(r#"INSERT INTO channels("channel_id", "guild_id", "data") VALUES"#);
-
-        let mut first = true;
-        for channel in channels {
-            // TODO: Cache DMs?
-            if first {
-                first = false;
-            } else {
-                query.push(',');
-            }
-
-            let encoded = serde_json::to_string(&channel).map_err(CacheError::JsonError)?;
-            query.push_str(&format!(
-                r#"({}, {}, {}::jsonb)"#,
-                channel.id.0,
-                channel.guild_id.unwrap().0,
-                quote_literal(encoded)
-            ));
-        }
-
-        query.push_str(r#" ON CONFLICT("channel_id") DO UPDATE SET "data" = excluded.data;"#);
+        let query = build_store_channels_query(channels, bot_id)?;
 
         self.client
             .simple_query(&query[..])
@@ -640,6 +626,69 @@ impl Worker {
     }
 }
 
+#[derive(Serialize)]
+struct StampedChannel<'a> {
+    #[serde(flatten)]
+    channel: &'a Channel,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "Snowflake::serialize_option_to_int"
+    )]
+    cached_by: Option<Snowflake>,
+}
+
+const OBFUSCATED_FLAG: u64 = 1 << 17;
+
+fn build_store_channels_query(channels: Vec<Channel>, bot_id: Option<Snowflake>) -> Result<String> {
+    let mut query =
+        String::from(r#"INSERT INTO channels("channel_id", "guild_id", "data") VALUES"#);
+
+    let mut first = true;
+    for channel in channels {
+        // TODO: Cache DMs?
+        if first {
+            first = false;
+        } else {
+            query.push(',');
+        }
+
+        let stamped = StampedChannel {
+            channel: &channel,
+            cached_by: bot_id,
+        };
+
+        let encoded = serde_json::to_string(&stamped).map_err(CacheError::JsonError)?;
+        query.push_str(&format!(
+            r#"({}, {}, {}::jsonb)"#,
+            channel.id.0,
+            channel.guild_id.unwrap().0,
+            quote_literal(encoded)
+        ));
+    }
+
+    query.push_str(r#" ON CONFLICT("channel_id") DO UPDATE SET "data" = excluded.data"#);
+
+    // A placeholder can't replace a visible row another bot wrote
+    if bot_id.is_some() {
+        let obfuscated = |row: &str| {
+            format!(
+                "COALESCE(({}.data->>'flags')::bigint, 0) & {} <> 0",
+                row, OBFUSCATED_FLAG
+            )
+        };
+
+        query.push_str(&format!(
+            r#" WHERE NOT ({}) OR {} OR channels.data->'cached_by' = excluded.data->'cached_by' OR channels.data->'cached_by' IS NULL"#,
+            obfuscated("excluded"),
+            obfuscated("channels")
+        ));
+    }
+
+    query.push(';');
+
+    Ok(query)
+}
+
 fn quote_literal(s: String) -> String {
     let s = s.replace("'", "''");
 
@@ -648,5 +697,40 @@ fn quote_literal(s: String) -> String {
         format!(" E'{}'", s)
     } else {
         format!("'{}'", s)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const INSERT: &str = r#"INSERT INTO channels("channel_id", "guild_id", "data") VALUES(222, 111, '{"type":0,"name":"___hidden___","flags":131072,"cached_by":333}'::jsonb) ON CONFLICT("channel_id") DO UPDATE SET "data" = excluded.data"#;
+
+    const GUARD: &str = r#" WHERE NOT (COALESCE((excluded.data->>'flags')::bigint, 0) & 131072 <> 0) OR COALESCE((channels.data->>'flags')::bigint, 0) & 131072 <> 0 OR channels.data->'cached_by' = excluded.data->'cached_by' OR channels.data->'cached_by' IS NULL"#;
+
+    fn channel() -> Channel {
+        serde_json::from_value(serde_json::json!({
+            "id": "222",
+            "type": 0,
+            "guild_id": "111",
+            "name": "___hidden___",
+            "flags": 131072
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn test_store_channels_query_without_bot() {
+        let query = build_store_channels_query(vec![channel()], None).unwrap();
+        assert_eq!(
+            query,
+            r#"INSERT INTO channels("channel_id", "guild_id", "data") VALUES(222, 111, '{"type":0,"name":"___hidden___","flags":131072}'::jsonb) ON CONFLICT("channel_id") DO UPDATE SET "data" = excluded.data;"#
+        );
+    }
+
+    #[test]
+    fn test_store_channels_query_from_bot() {
+        let query = build_store_channels_query(vec![channel()], Some(Snowflake(333))).unwrap();
+        assert_eq!(query, format!("{}{};", INSERT, GUARD));
     }
 }

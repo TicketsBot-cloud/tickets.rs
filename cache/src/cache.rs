@@ -10,12 +10,18 @@ use model::Snowflake;
 pub trait Cache: Send + Sync + 'static {
     async fn store_guild(&self, guild: Guild) -> Result<()>;
     async fn store_guilds(&self, guilds: Vec<Guild>) -> Result<()>;
+    async fn store_guild_from_bot(&self, guild: Guild, _bot_id: Snowflake) -> Result<()> {
+        self.store_guild(guild).await
+    }
     async fn get_guild(&self, id: Snowflake) -> Result<Option<Guild>>;
     async fn delete_guild(&self, id: Snowflake) -> Result<()>;
     async fn get_guild_count(&self) -> Result<usize>;
 
     async fn store_channel(&self, channel: Channel) -> Result<()>;
     async fn store_channels(&self, channels: Vec<Channel>) -> Result<()>;
+    async fn store_channel_from_bot(&self, channel: Channel, _bot_id: Snowflake) -> Result<()> {
+        self.store_channel(channel).await
+    }
     async fn get_channel(&self, id: Snowflake) -> Result<Option<Channel>>;
     async fn delete_channel(&self, id: Snowflake) -> Result<()>;
 
