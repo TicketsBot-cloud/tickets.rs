@@ -1,4 +1,4 @@
-FROM rust:1-bullseye
+FROM rust:1-bookworm
 
 RUN apt-get install -y apt-transport-https
 RUN apt-get update && apt-get -y upgrade && apt-get -y install python3 openssl libssl-dev ca-certificates cmake
@@ -10,7 +10,7 @@ COPY . .
 
 RUN cargo build --release --bin whitelabel --no-default-features --features whitelabel,skip-initial-guild-creates,use-sentry,metrics
 
-FROM debian:bullseye
+FROM debian:bookworm
 
 RUN apt-get update && apt-get -y upgrade && apt-get -y install python3 openssl libssl-dev ca-certificates tini
 
