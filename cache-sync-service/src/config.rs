@@ -4,6 +4,8 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub workers: usize,
+    #[serde(default = "default_batch_size")]
+    pub batch_size: usize,
     pub redis_addr: String,
     pub redis_password: Option<String>,
     pub redis_stream: String,
@@ -23,4 +25,8 @@ impl Config {
             None => format!("redis://{}/", self.redis_addr),
         }
     }
+}
+
+fn default_batch_size() -> usize {
+    100
 }
