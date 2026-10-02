@@ -31,10 +31,6 @@ jobs:
             dockerfile: http-gateway/Dockerfile
             deployment: http-gateway
             paths: http-gateway model common database cache
-          - package: premiumproxy
-            dockerfile: patreon-proxy/Dockerfile
-            deployment: premiumproxy
-            paths: patreon-proxy
           - package: cache-sync-service
             dockerfile: cache-sync-service/Dockerfile
             deployment: cache-sync-service
@@ -51,10 +47,6 @@ jobs:
             dockerfile: image-proxy/Dockerfile
             deployment: image-proxy
             paths: image-proxy global-resolver
-          - package: vote_listener
-            dockerfile: vote_listener/Dockerfile
-            deployment: votelistener
-            paths: vote_listener model
           - package: secure-proxy
             dockerfile: secure-proxy/Dockerfile
             deployment: secure-proxy
