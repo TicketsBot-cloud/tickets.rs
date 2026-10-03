@@ -3,14 +3,14 @@ use model::guild::{
     DefaultMessageNotifications, ExplicitContentFilterLevel, Guild, MFALevel, NsfwLevel,
     PremiumTier, VerificationLevel, WelcomeScreen,
 };
-use model::{ImageHash, PermissionBitSet, Snowflake};
+use model::{PermissionBitSet, Snowflake};
 
 #[derive(Debug)]
 pub struct CachedGuild {
     pub name: String,
-    pub icon: Option<ImageHash>,
-    pub splash: Option<ImageHash>,
-    pub discovery_splash: Option<ImageHash>,
+    pub icon: Option<String>,
+    pub splash: Option<String>,
+    pub discovery_splash: Option<String>,
     pub owner: Option<bool>,
     pub owner_id: Snowflake,
     pub permissions: Option<PermissionBitSet>,
@@ -36,7 +36,7 @@ pub struct CachedGuild {
     pub max_members: Option<u32>,
     pub vanity_url_code: Option<String>,
     pub description: Option<String>,
-    pub banner: Option<ImageHash>,
+    pub banner: Option<String>,
     pub premium_tier: PremiumTier,
     pub premium_subscription_count: Option<u16>,
     pub preferred_locale: String,
