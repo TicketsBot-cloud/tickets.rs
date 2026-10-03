@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
     info!("Connecting to Postgres...");
     let cache = connect_postgres(&config).await?;
 
-    info!(workers = %config.workers, "Starting workers...");
+    info!(batch_size = %config.batch_size, "Starting consumer...");
     let manager = Manager::new(config, cache);
     manager.start().await?;
 

@@ -36,43 +36,43 @@ lazy_static! {
 }
 
 pub struct Worker<C: Cache> {
-    id: usize,
     consumer: Arc<Consumer>,
     cache: Arc<C>,
+    batch_size: usize,
 }
 
 impl<C: Cache> Worker<C> {
-    pub fn new(id: usize, consumer: Arc<Consumer>, cache: Arc<C>) -> Self {
+    pub fn new(consumer: Arc<Consumer>, cache: Arc<C>, batch_size: usize) -> Self {
         Self {
-            id,
             consumer,
             cache,
+            batch_size,
         }
     }
 
     pub async fn run(&self) {
-        debug!(%self.id, "Starting worker");
+        debug!("Starting worker");
 
         loop {
-            let ev = match self.consumer.recv().await {
-                Ok(ev) => ev,
+            let events = match self.consumer.recv_batch(self.batch_size).await {
+                Ok(events) => events,
                 Err(e) => {
-                    error!(error = %e, "Failed to receive event");
+                    error!(error = %e, "Failed to receive events");
                     continue;
                 }
             };
 
-            debug!(%ev.bot_id, "Received event");
+            for ev in events {
+                debug!(%ev.bot_id, "Received event");
 
-            CONCURRENT_EVENTS_GUAGE.inc();
+                CONCURRENT_EVENTS_GUAGE.inc();
 
-            if let Err(e) = self.handle_event(ev.event, Snowflake(ev.bot_id)).await {
-                error!(error = %e, "Failed to handle event.");
+                if let Err(e) = self.handle_event(ev.event, Snowflake(ev.bot_id)).await {
+                    error!(error = %e, "Failed to handle event.");
+                }
+
                 CONCURRENT_EVENTS_GUAGE.dec();
-                continue;
             }
-
-            CONCURRENT_EVENTS_GUAGE.dec();
         }
     }
 
@@ -114,6 +114,8 @@ impl<C: Cache> Worker<C> {
                 apply_guild_id_to_channels(&mut g);
                 self.cache.store_guild_from_bot(g, bot_id).await?;
             }
+            // Unavailable means a Discord outage, not a removal; the guild comes back with a GUILD_CREATE
+            Event::GuildDelete(g) if g.unavailable == Some(true) => cachable = false,
             Event::GuildDelete(g) => self.cache.delete_guild(g.id).await?,
             // When removing members, also remove the user, as it's too expensive to check if the user is in another guild.
             // It is cheaper to just fetch the user again later.

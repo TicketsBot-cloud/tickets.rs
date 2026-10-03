@@ -30,26 +30,13 @@ impl<C: Cache> Manager<C> {
         debug!(%stream, %group, "Building Redis pool for consumer");
         let pool = build_pool(&self.config);
 
-        for i in 0..self.config.workers {
-            let consumer_name = format!("worker-{}", i);
+        // One reader applies each guild's events in stream order; parallel readers let a guild's events overtake each other
+        let consumer = Arc::new(Consumer::new(pool, stream, group, "worker-0".to_string()).await?);
+        let worker = Worker::new(consumer, Arc::clone(&self.cache), self.config.batch_size);
 
-            debug!(%stream, %group, %consumer_name, "Creating consumer");
-            let consumer = Arc::new(
-                Consumer::new(
-                    pool.clone(),
-                    stream.clone(),
-                    group.clone(),
-                    consumer_name,
-                )
-                .await?,
-            );
-
-            let worker = Worker::new(i, consumer, Arc::clone(&self.cache));
-
-            tokio::spawn(async move {
-                worker.run().await;
-            });
-        }
+        tokio::spawn(async move {
+            worker.run().await;
+        });
 
         Ok(())
     }

@@ -8,6 +8,7 @@ use serde::Serialize;
 use std::cmp::Ordering::Equal;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio_postgres::error::SqlState;
 use tokio_postgres::Client;
 use tracing::{debug, error, info, warn};
 
@@ -152,7 +153,26 @@ impl Worker {
     }
 }
 
+const UPSERT_ATTEMPTS: usize = 3;
+
 impl Worker {
+    // ON CONFLICT only arbitrates one of the table's two unique indexes, so a concurrent insert of the same row fails on the other one; the retry sees the committed row and updates it
+    async fn upsert(&self, query: &str) -> Result<()> {
+        let mut attempt = 1;
+        loop {
+            match self.client.simple_query(query).await {
+                Ok(_) => return Ok(()),
+                Err(e)
+                    if attempt < UPSERT_ATTEMPTS
+                        && e.code() == Some(&SqlState::UNIQUE_VIOLATION) =>
+                {
+                    attempt += 1
+                }
+                Err(e) => return Err(CacheError::DatabaseError(e)),
+            }
+        }
+    }
+
     #[tracing::instrument(skip(self, guilds))]
     async fn store_guilds(&self, mut guilds: Vec<Guild>, bot_id: Option<Snowflake>) -> Result<()> {
         if guilds.is_empty() {
@@ -288,12 +308,7 @@ impl Worker {
 
         let query = build_store_channels_query(channels, bot_id)?;
 
-        self.client
-            .simple_query(&query[..])
-            .await
-            .map_err(CacheError::DatabaseError)?;
-
-        Ok(())
+        self.upsert(&query).await
     }
 
     async fn get_channel(&self, id: Snowflake) -> Result<Option<Channel>> {
@@ -479,12 +494,7 @@ impl Worker {
             r#" ON CONFLICT("role_id", "guild_id") DO UPDATE SET "data" = excluded.data;"#,
         );
 
-        self.client
-            .simple_query(&query[..])
-            .await
-            .map_err(CacheError::DatabaseError)?;
-
-        Ok(())
+        self.upsert(&query).await
     }
 
     async fn get_role(&self, id: Snowflake) -> Result<Option<Role>> {
@@ -539,12 +549,7 @@ impl Worker {
             r#" ON CONFLICT("emoji_id", "guild_id") DO UPDATE SET "data" = excluded.data;"#,
         );
 
-        self.client
-            .simple_query(&query[..])
-            .await
-            .map_err(CacheError::DatabaseError)?;
-
-        Ok(())
+        self.upsert(&query).await
     }
 
     async fn get_emoji(&self, emoji_id: Snowflake) -> Result<Option<Emoji>> {
