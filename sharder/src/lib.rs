@@ -16,6 +16,11 @@ pub use builders::{build_redis, setup_sentry};
 mod config;
 pub use config::Config;
 
+#[cfg(feature = "whitelabel")]
+mod token_keyring;
+#[cfg(feature = "whitelabel")]
+pub use token_keyring::{load_keyring, load_keyring_from_env, KeyringLoadError};
+
 #[cfg(feature = "metrics")]
 pub mod metrics_server;
 

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "short_token_bot_1",
+    "key_version": 1,
+    "key_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "nonce_hex": "000102030405060708090a0b",
+    "bot_id": 1,
+    "plaintext": "fake-token-one",
+    "sealed_hex": "000102030405060708090a0b2163bd7ee891ad70e82fbae4df8cb7b78381713f1b151e5bae0832b9f38a"
+  },
+  {
+    "name": "bot_id_zero",
+    "key_version": 1,
+    "key_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "nonce_hex": "010101010101010101010101",
+    "bot_id": 0,
+    "plaintext": "FAKE.TOKEN.NOT-A-REAL-DISCORD-TOKEN-0000000000000000000000000000",
+    "sealed_hex": "0101010101010101010101013182ae7046d1272d911a495657337f99e63cca9addae5295a09848bed924aa7ee7932c62d6a66a036812c7ef0295be40bbd5783d7ecfb129cd46140ef712bbefe7e41e950e9939b2070380e704441d3a"
+  },
+  {
+    "name": "bot_id_max_u64",
+    "key_version": 2,
+    "key_b64": "4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8=",
+    "nonce_hex": "7f7f7f7f7f7f7f7f7f7f7f7f",
+    "bot_id": 18446744073709551615,
+    "plaintext": "FAKE.TOKEN.NOT-A-REAL-DISCORD-TOKEN-0000000000000000000000000000",
+    "sealed_hex": "7f7f7f7f7f7f7f7f7f7f7f7f1c192281f2abd75ea0138948e9db356bbafc1d02aba14060968afb92dab490dad1036127aa99fcbc76b820a1469c313527d7238cc214435a0f220063f54e967fa5bfc1d10602325e8c770a6846af2cf9"
+  },
+  {
+    "name": "realistic_length_token",
+    "key_version": 3,
+    "key_b64": "paWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaU=",
+    "nonce_hex": "101112131415161718191a1b",
+    "bot_id": 1234567890123456789,
+    "plaintext": "MTIzNDU2Nzg5MDEyMzQ1Njc4.GXXXXX.fake_test_only_fake_test_only_fake_test_only_",
+    "sealed_hex": "101112131415161718191a1b0ca3b9ab921f7a810c58f2c754f5f0afc9e2b4a47e57679004a280b7e477561bd935e592b2c0bd39b60007dc059538c35b8952601ff1691311740b84cf9264c1b1048baeae1b00e6a53e4c262f286a9c0b9ce5ac073c03445a6756bb42"
+  },
+  {
+    "name": "empty_plaintext",
+    "key_version": 1,
+    "key_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "nonce_hex": "ffffffffffffffffffffffff",
+    "bot_id": 42,
+    "plaintext": "",
+    "sealed_hex": "ffffffffffffffffffffffff87b433d1cc75c2bbdfbdd587e79d51b2"
+  },
+  {
+    "name": "non_ascii_plaintext",
+    "key_version": 2,
+    "key_b64": "4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8=",
+    "nonce_hex": "0c0d0e0f1011121314151617",
+    "bot_id": 987654321,
+    "plaintext": "fake-töken-✓",
+    "sealed_hex": "0c0d0e0f10111213141516173e85ccde52b84cc8ef0e45f7d9e0692e9026658c4f8990d6d340b3a23632d9"
+  }
+]

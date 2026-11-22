@@ -562,6 +562,7 @@ dependencies = [
  "hyper-util",
  "model",
  "prometheus",
+ "ring 0.17.8",
  "serde",
  "serde_json",
  "serde_repr",
