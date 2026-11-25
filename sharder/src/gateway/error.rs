@@ -73,7 +73,7 @@ pub enum GatewayError {
     Utf8Error(#[from] std::str::Utf8Error),
 
     #[error("[{:?}] {:?}", .data.status_code, .data.error)]
-    AuthenticationError { bot_token: String, data: CloseEvent },
+    AuthenticationError { data: CloseEvent },
 
     #[error("error occurred while forwarding event to worker over HTTP: {0}")]
     ReqwestError(#[from] reqwest::Error),

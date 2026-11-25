@@ -4,3 +4,6 @@ pub mod token_change;
 
 #[cfg(feature = "prometheus-server")]
 pub mod prometheus_server;
+
+#[cfg(feature = "token-crypto")]
+pub mod token_crypto;

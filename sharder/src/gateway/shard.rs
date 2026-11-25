@@ -352,7 +352,6 @@ impl<T: EventForwarder> Shard<T> {
 
                                         if !close_event.should_reconnect() {
                                             return GatewayError::AuthenticationError {
-                                                bot_token: self.identify.data.token.clone(),
                                                 data: close_event,
                                             }.into();
                                         }
@@ -661,7 +660,6 @@ impl<T: EventForwarder> Shard<T> {
 
             // prepare payload
             let wrapped = event_forwarding::Event {
-                bot_token: self.identify.data.token.clone(),
                 bot_id: self.user_id.0,
                 is_whitelabel: is_whitelabel(),
                 shard_id: self.get_shard_id(),

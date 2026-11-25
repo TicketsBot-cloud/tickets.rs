@@ -1,14 +1,39 @@
 use super::Opcode;
 use crate::gateway::ShardInfo;
 use serde::Serialize;
+use std::fmt;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize)]
 pub struct Identify {
     #[serde(rename = "op")]
     opcode: Opcode,
 
     #[serde(rename = "d")]
     pub data: IdentifyData,
+}
+
+impl fmt::Debug for Identify {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Identify")
+            .field("opcode", &self.opcode)
+            .field("data", &self.data)
+            .finish()
+    }
+}
+
+impl fmt::Debug for IdentifyData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("IdentifyData")
+            .field("token", &"<redacted>")
+            .field("properties", &self.properties)
+            .field("compress", &self.compress)
+            .field("large_threshold", &self.large_threshold)
+            .field("shard_info", &self.shard_info)
+            .field("presence", &self.presence)
+            .field("guild_subscriptions", &self.guild_subscriptions)
+            .field("intents", &self.intents)
+            .finish()
+    }
 }
 
 impl Identify {
@@ -42,7 +67,7 @@ impl Identify {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize)]
 pub struct IdentifyData {
     pub token: String,
 
@@ -93,5 +118,25 @@ impl ConnectionProperties {
 impl Default for ConnectionProperties {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_token() {
+        let identify = Identify::new(
+            "super.secret.token".to_owned(),
+            None,
+            ShardInfo::new(0, 1),
+            None,
+            0,
+        );
+
+        let out = format!("{:?} {:#?}", identify, identify.data);
+        assert!(!out.contains("super.secret.token"));
+        assert!(out.contains("<redacted>"));
     }
 }

@@ -7,6 +7,8 @@ mod public_shard_manager;
 pub use public_shard_manager::PublicShardManager;
 
 #[cfg(feature = "whitelabel")]
+mod whitelabel_decision;
+#[cfg(feature = "whitelabel")]
 mod whitelabel_shard_manager;
 #[cfg(feature = "whitelabel")]
 pub use whitelabel_shard_manager::WhitelabelShardManager;

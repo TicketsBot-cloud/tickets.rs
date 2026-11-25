@@ -2,7 +2,6 @@ use crate::http::Server;
 use crate::Error;
 use cache::Cache;
 use common::event_forwarding::ForwardedInteraction;
-use database::WhitelabelBot;
 use ed25519_dalek::{PublicKey, Signature, Verifier};
 use model::guild::Member;
 use model::interaction::{
@@ -34,37 +33,31 @@ pub async fn handle<T: Cache>(
         .chain(body_slice.iter().copied())
         .collect();
 
-    let whitelabel_bot: Option<WhitelabelBot> = if bot_id == server.config.public_bot_id {
-        None
+    let public_key = if bot_id == server.config.public_bot_id {
+        server.config.public_public_key
     } else {
-        match server.database.whitelabel.get_bot_by_id(bot_id).await {
-            Ok(bot @ Some(_)) => bot,
+        let key = match server
+            .database
+            .whitelabel
+            .get_public_key_by_bot_id(bot_id)
+            .await
+        {
+            Ok(Some(key)) => key,
             Ok(None) => return Err(warp::reject::custom(Error::BotNotFound(bot_id))),
             Err(e) => return Err(warp::reject::custom(Error::DatabaseError(e))),
-        }
-    };
+        };
 
-    let public_key = match &whitelabel_bot {
-        Some(bot) => {
-            let mut bytes = [0u8; 32];
-            hex::decode_to_slice(bot.public_key.clone().as_bytes(), &mut bytes)
-                .map_err(Error::InvalidSignatureFormat)?;
+        let mut bytes = [0u8; 32];
+        hex::decode_to_slice(key.as_bytes(), &mut bytes).map_err(Error::InvalidSignatureFormat)?;
 
-            PublicKey::from_bytes(&bytes)
-                .map_err(Error::InvalidSignature)
-                .map_err(warp::reject::custom)?
-        }
-        None => server.config.public_public_key,
+        PublicKey::from_bytes(&bytes)
+            .map_err(Error::InvalidSignature)
+            .map_err(warp::reject::custom)?
     };
 
     if let Err(e) = public_key.verify(&body_with_timestamp[..], &signature) {
         return Err(Error::InvalidSignature(e).into());
     }
-
-    let token = match whitelabel_bot {
-        Some(bot) => bot.token,
-        None => server.config.public_token.clone(),
-    };
 
     let interaction: Interaction = serde_json::from_slice(&body[..])
         .map_err(Error::JsonError)
@@ -92,7 +85,7 @@ pub async fn handle<T: Cache>(
                 });
             }
 
-            let res_body = forward(server, bot_id, token, interaction_type, &body[..])
+            let res_body = forward(server, bot_id, interaction_type, &body[..])
                 .await
                 .map_err(warp::reject::custom)?;
 
@@ -113,7 +106,7 @@ pub async fn handle<T: Cache>(
                 });
             }
 
-            let res_body = forward(server, bot_id, token, interaction_type, &body[..])
+            let res_body = forward(server, bot_id, interaction_type, &body[..])
                 .await
                 .map_err(warp::reject::custom)?;
 
@@ -121,7 +114,7 @@ pub async fn handle<T: Cache>(
         }
 
         Interaction::ApplicationCommandAutoComplete(data) => {
-            let res_body = forward(server, bot_id, token, data.r#type, &body[..])
+            let res_body = forward(server, bot_id, data.r#type, &body[..])
                 .await
                 .map_err(warp::reject::custom)?;
 
@@ -129,7 +122,7 @@ pub async fn handle<T: Cache>(
         }
 
         Interaction::ModalSubmit(data) => {
-            let res_body = forward(server, bot_id, token, data.r#type, &body[..])
+            let res_body = forward(server, bot_id, data.r#type, &body[..])
                 .await
                 .map_err(warp::reject::custom)?;
 
@@ -143,7 +136,6 @@ pub async fn handle<T: Cache>(
 pub async fn forward<T: Cache>(
     server: Arc<Server<T>>,
     bot_id: Snowflake,
-    token: String,
     interaction_type: InteractionType,
     data: &[u8],
 ) -> Result<Bytes, Error> {
@@ -152,7 +144,6 @@ pub async fn forward<T: Cache>(
     let is_whitelabel = bot_id != server.config.public_bot_id;
 
     let wrapped = ForwardedInteraction {
-        bot_token: token.as_str(),
         bot_id: bot_id.0,
         is_whitelabel,
         interaction_type,

@@ -44,7 +44,7 @@ dotenv = "0.15"
 [features]
 default = ["use-mimalloc", "skip-initial-guild-creates", "use-sentry", "metrics", "resume-after-identify"]
 compression = ["flate2", "reqwest/gzip"]
-whitelabel = []
+whitelabel = ["common/token-crypto"]
 skip-initial-guild-creates = []
 use-sentry = ["sentry", "sentry-tracing", "sentry-panic"]
 metrics = ["prometheus", "lazy_static", "hyper"]

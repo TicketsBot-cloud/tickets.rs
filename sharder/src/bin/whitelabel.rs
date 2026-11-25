@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use sharder::{
-    await_shutdown, build_redis, Config, RedisSessionStore, ShardManager, WhitelabelShardManager,
+    await_shutdown, build_redis, load_keyring_from_env, Config, RedisSessionStore, ShardManager,
+    WhitelabelShardManager,
 };
 
 #[cfg(feature = "use-sentry")]
@@ -35,6 +36,10 @@ static GLOBAL: MiMalloc = MiMalloc;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_envvar();
 
+    // Refuse to run without a usable keyring rather than start shards that
+    // cannot decrypt any token.
+    let keyring = Arc::new(load_keyring_from_env()?);
+
     #[cfg(feature = "use-sentry")]
     let _guard = setup_sentry(&config);
 
@@ -67,6 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         redis,
         session_store,
         event_forwarder,
+        keyring,
     ));
 
     Arc::clone(&sm).connect().await;

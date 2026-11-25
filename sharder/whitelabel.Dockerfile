@@ -1,4 +1,4 @@
-FROM rust:1-bookworm
+FROM rust:1.98-bookworm
 
 RUN apt-get install -y apt-transport-https
 RUN apt-get update && apt-get -y upgrade && apt-get -y install python3 openssl libssl-dev ca-certificates cmake
