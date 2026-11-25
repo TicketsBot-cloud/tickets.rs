@@ -9,6 +9,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 use ring::rand::{SecureRandom, SystemRandom};
 
@@ -137,49 +139,6 @@ fn parse_version(s: &str) -> Option<i16> {
     Some(n as i16)
 }
 
-/// Strict standard base64: padded, canonical (zero trailing bits), and no
-/// characters outside the alphabet. Mirrors the Go decode-then-reencode check.
-fn decode_base64_strict(s: &str) -> Option<Vec<u8>> {
-    let b = s.as_bytes();
-    if b.is_empty() || b.len() % 4 != 0 {
-        return None;
-    }
-
-    let pad = b.iter().rev().take_while(|c| **c == b'=').count();
-    if pad > 2 {
-        return None;
-    }
-
-    let data = &b[..b.len() - pad];
-    let mut out = Vec::with_capacity(b.len() / 4 * 3);
-    let mut acc: u32 = 0;
-    let mut bits = 0u32;
-
-    for c in data {
-        let v = match c {
-            b'A'..=b'Z' => c - b'A',
-            b'a'..=b'z' => c - b'a' + 26,
-            b'0'..=b'9' => c - b'0' + 52,
-            b'+' => 62,
-            b'/' => 63,
-            _ => return None,
-        };
-        acc = (acc << 6) | u32::from(v);
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            out.push((acc >> bits) as u8);
-            acc &= (1 << bits) - 1;
-        }
-    }
-
-    if acc != 0 {
-        return None;
-    }
-
-    Some(out)
-}
-
 fn make_key(key: &[u8]) -> Option<LessSafeKey> {
     UnboundKey::new(&AES_256_GCM, key).ok().map(LessSafeKey::new)
 }
@@ -236,7 +195,8 @@ impl TokenKeyring {
                 .ok_or(KeyConfigError::MalformedEntry(n))?;
 
             let version = parse_version(version_str).ok_or(KeyConfigError::InvalidVersion(n))?;
-            let key = decode_base64_strict(key_str).ok_or(KeyConfigError::InvalidBase64(n))?;
+            // STANDARD requires canonical padding and zero trailing bits, like the Go re-encode check.
+            let key = BASE64.decode(key_str).map_err(|_| KeyConfigError::InvalidBase64(n))?;
 
             if key.len() != KEY_LEN {
                 return Err(KeyConfigError::WrongKeyLength(n));

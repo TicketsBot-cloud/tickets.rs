@@ -28,19 +28,7 @@ fn hex_decode(s: &str) -> Vec<u8> {
 }
 
 fn b64(bytes: &[u8]) -> String {
-    const A: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::new();
-    for chunk in bytes.chunks(3) {
-        let n = chunk.iter().enumerate().fold(0u32, |acc, (i, b)| acc | (u32::from(*b) << (16 - 8 * i)));
-        for i in 0..4 {
-            if i <= chunk.len() {
-                out.push(A[((n >> (18 - 6 * i)) & 63) as usize] as char);
-            } else {
-                out.push('=');
-            }
-        }
-    }
-    out
+    BASE64.encode(bytes)
 }
 
 fn key(b: u8) -> Vec<u8> {
@@ -53,15 +41,9 @@ fn ring(active: &str) -> TokenKeyring {
 }
 
 #[test]
-fn base64_helper_matches_known_values() {
-    assert_eq!(b64(&(0u8..32).collect::<Vec<_>>()), "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=");
-    assert_eq!(decode_base64_strict(&b64(&key(7))).unwrap(), key(7));
-}
-
-#[test]
 fn vectors_reproduce_and_open() {
     for v in vectors() {
-        let raw_key = decode_base64_strict(&v.key_b64).unwrap();
+        let raw_key = BASE64.decode(&v.key_b64).unwrap();
         let k = make_key(&raw_key).unwrap();
         let nonce: [u8; 12] = hex_decode(&v.nonce_hex).try_into().unwrap();
         let want = hex_decode(&v.sealed_hex);
@@ -177,7 +159,7 @@ fn parse_failures_never_echo_input() {
         ("empty active", format!("1:{good}"), "", KeyConfigError::InvalidActiveVersion),
         ("missing colon", format!("1{good}"), "1", KeyConfigError::MalformedEntry(1)),
         ("empty entry", format!("1:{good},"), "1", KeyConfigError::MalformedEntry(2)),
-        ("empty key part", "1:".into(), "1", KeyConfigError::InvalidBase64(1)),
+        ("empty key part", "1:".into(), "1", KeyConfigError::WrongKeyLength(1)),
         ("bad base64", "1:not*base64*not*base64*not*base64*not*base64!!".into(), "1", KeyConfigError::InvalidBase64(1)),
         ("newline in base64", format!("1:{newline}"), "1", KeyConfigError::InvalidBase64(1)),
         ("url safe alphabet", format!("1:{url_safe}"), "1", KeyConfigError::InvalidBase64(1)),

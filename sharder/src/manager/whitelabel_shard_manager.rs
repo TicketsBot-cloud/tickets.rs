@@ -487,8 +487,9 @@ impl<T: EventForwarder> WhitelabelShardManager<T> {
 
                 match serde_json::from_slice::<token_change::Payload>(m.get_payload_bytes()) {
                     Ok(payload) => {
-                        // start new bot
-                        if payload.new_id.0 % (manager.config.sharder_total as u64)
+                        // start new bot; new_id 0 comes from a first-bot rollback and has nothing to start
+                        if payload.new_id.0 != 0
+                            && payload.new_id.0 % (manager.config.sharder_total as u64)
                             == manager.config.sharder_id as u64
                         {
                             match self.database.whitelabel.get_bot_by_id(payload.new_id).await {
