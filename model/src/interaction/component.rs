@@ -1,6 +1,7 @@
 use super::{
     ActionRow, Button, CheckboxGroup, Container, File, InputText, Label, MediaGallery,
-    RadioGroup, Section, SelectMenu, Separator, TextDisplay, Thumbnail,
+    MenuActionItem, OverflowMenu, RadioGroup, Section, SelectMenu, Separator, TextDisplay,
+    Thumbnail,
 };
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -26,6 +27,8 @@ pub enum Component {
     // 19 & 20 are not used
     RadioGroup(Box<RadioGroup>),       // 21
     CheckboxGroup(Box<CheckboxGroup>), // 22
+    OverflowMenu(Box<OverflowMenu>),     // 25
+    MenuActionItem(Box<MenuActionItem>), // 26
 }
 
 #[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone)]
@@ -51,6 +54,8 @@ pub enum ComponentType {
     // 19 & 20 are not used
     RadioGroup = 21,
     CheckboxGroup = 22,
+    OverflowMenu = 25,
+    MenuActionItem = 26,
 }
 
 impl TryFrom<u64> for ComponentType {
@@ -78,6 +83,8 @@ impl TryFrom<u64> for ComponentType {
             // 19 & 20 are not used
             21 => Self::RadioGroup,
             22 => Self::CheckboxGroup,
+            25 => Self::OverflowMenu,
+            26 => Self::MenuActionItem,
             _ => return Err(format!("invalid component type \"{}\"", value).into_boxed_str()),
         })
     }
@@ -120,6 +127,12 @@ impl<'de> Deserialize<'de> for Component {
             }
             ComponentType::CheckboxGroup => {
                 serde_json::from_value(value).map(Component::CheckboxGroup)
+            }
+            ComponentType::OverflowMenu => {
+                serde_json::from_value(value).map(Component::OverflowMenu)
+            }
+            ComponentType::MenuActionItem => {
+                serde_json::from_value(value).map(Component::MenuActionItem)
             }
         }
         .map_err(D::Error::custom)?;
